@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Book Management (Beginner)</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        h1 {
+            color: darkred;
+        }
+        form, table {
+            margin-bottom: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        table, th, td {
+            border: 1px solid gray;
+        }
+        th, td {
+            padding: 8px;
+            text-align: left;
+        }
+        input {
+            margin-bottom: 10px;
+            display: block;
+            padding: 5px;
+            width: 95%;
+        }
+        button {
+            padding: 6px 12px;
+            margin-right: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Book Management</h1>
+
+    <!-- Book Form -->
+    <form id="bookForm">
+        <input type="hidden" id="bookId">
+        <label>Title:</label>
+        <input type="text" id="title" required>
+        <label>Author:</label>
+        <input type="text" id="author" required>
+        <label>Price ($):</label>
+        <input type="number" id="price" step="0.01" required>
+        <button type="submit">Save Book</button>
+    </form>
+
+    <!-- Book Table -->
+    <table>
+        <thead>
+            <tr>
+                <th>Title</th><th>Author</th><th>Price</th><th>Actions</th>
+            </tr>
+        </thead>
+        <tbody id="bookList">
+            <!-- Books will appear here -->
+        </tbody>
+    </table>
+
+    <script>
+        const apiUrl = "http://localhost:8080/api/books";
+        const bookForm = document.getElementById("bookForm");
+        const bookList = document.getElementById("bookList");
+        const bookIdInput = document.getElementById("bookId");
+
+        async function loadBooks() {
+            try {
+                const res = await fetch(apiUrl);
+                const books = await res.json();
+
+                bookList.innerHTML = "";
+
+                books.forEach(book => {
+                    const row = document.createElement("tr");
+                    row.innerHTML = `
+                        <td>${book.title}</td>
+                        <td>${book.author}</td>
+                        <td>$${book.price.toFixed(2)}</td>
+                        <td>
+                            <button onclick="editBook(${book.id}, '${book.title}', '${book.author}', ${book.price})">Edit</button>
+                            <button onclick="deleteBook(${book.id}, '${book.title}')">Delete</button>
+                        </td>
+                    `;
+                    bookList.appendChild(row);
+                });
+            } catch (err) {
+                console.error("Error loading books", err);
+                bookList.innerHTML = `<tr><td colspan="4">Failed to load books.</td></tr>`;
+            }
+        }
+
+        bookForm.addEventListener("submit", async e => {
+            e.preventDefault();
+
+            const book = {
+                title: document.getElementById("title").value,
+                author: document.getElementById("author").value,
+                price: parseFloat(document.getElementById("price").value)
+            };
+
+            const id = bookIdInput.value;
+
+            try {
+                if (id) {
+                    // Update book
+                    await fetch(`${apiUrl}/${id}`, {
+                        method: "PUT",
+                        headers: {"Content-Type": "application/json"},
+                        body: JSON.stringify(book)
+                    });
+                } else {
+                    // Add book
+                    await fetch(apiUrl, {
+                        method: "POST",
+                        headers: {"Content-Type": "application/json"},
+                        body: JSON.stringify(book)
+                    });
+                }
+
+                bookForm.reset();
+                bookIdInput.value = "";
+                loadBooks();
+            } catch (err) {
+                alert("Error saving book");
+            }
+        });
+
+        // Edit book
+        function editBook(id, title, author, price) {
+            bookIdInput.value = id;
+            document.getElementById("title").value = title;
+            document.getElementById("author").value = author;
+            document.getElementById("price").value = price;
+        }
+
+        // Delete book
+        async function deleteBook(id, title) {
+            if (confirm(`Are you sure you want to delete "${title}"?`)) {
+                try {
+                    await fetch(`${apiUrl}/${id}`, { method: "DELETE" });
+                    loadBooks();
+                } catch (err) {
+                    alert("Error deleting book");
+                }
+            }
+        }
+
+        // First load
+        loadBooks();
+    </script>
+</body>
+</html>
